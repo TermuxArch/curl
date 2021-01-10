@@ -123,7 +123,9 @@ static CURLcode sftp_done(struct Curl_easy *data,
                           CURLcode, bool premature);
 static CURLcode sftp_doing(struct Curl_easy *data,
                            bool *dophase_done);
-static CURLcode sftp_disconnect(struct Curl_easy *data, bool dead);
+static CURLcode sftp_disconnect(struct Curl_easy *data,
+                                struct connectdata *conn,
+                                bool dead);
 static
 CURLcode sftp_perform(struct Curl_easy *data,
                       bool *connected,
@@ -135,7 +137,8 @@ static int myssh_getsock(struct connectdata *conn, curl_socket_t *sock);
 static int myssh_perform_getsock(struct connectdata *conn,
                                  curl_socket_t *sock);
 
-static CURLcode myssh_setup_connection(struct Curl_easy *data);
+static CURLcode myssh_setup_connection(struct Curl_easy *data,
+                                       struct connectdata *conn);
 
 /*
  * SCP protocol handler.
@@ -2123,9 +2126,11 @@ static CURLcode myssh_block_statemach(struct Curl_easy *data,
 /*
  * SSH setup connection
  */
-static CURLcode myssh_setup_connection(struct Curl_easy *data)
+static CURLcode myssh_setup_connection(struct Curl_easy *data,
+                                       struct connectdata *conn)
 {
   struct SSHPROTO *ssh;
+  (void)conn;
 
   data->req.p.ssh = ssh = calloc(1, sizeof(struct SSHPROTO));
   if(!ssh)
@@ -2151,7 +2156,7 @@ static CURLcode myssh_connect(struct Curl_easy *data, bool *done)
 
   /* initialize per-handle data if not already */
   if(!data->req.p.ssh)
-    myssh_setup_connection(data);
+    myssh_setup_connection(data, conn);
 
   /* We default to persistent connections. We set this already in this connect
      function to make the re-use checks properly be able to check this bit. */
@@ -2492,10 +2497,11 @@ static CURLcode sftp_doing(struct Curl_easy *data,
 /* BLOCKING, but the function is using the state machine so the only reason
    this is still blocking is that the multi interface code has no support for
    disconnecting operations that takes a while */
-static CURLcode sftp_disconnect(struct Curl_easy *data, bool dead_connection)
+static CURLcode sftp_disconnect(struct Curl_easy *data,
+                                struct connectdata *conn,
+                                bool dead_connection)
 {
   CURLcode result = CURLE_OK;
-  struct connectdata *conn = data->conn;
   (void) dead_connection;
 
   DEBUGF(infof(data, "SSH DISCONNECT starts now\n"));
